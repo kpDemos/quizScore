@@ -6,4 +6,4 @@ A demo single page that:
 - saves their score from the quiz in a Firebase Firestore database under their user ID
 - calculates their highest score from all their quiz attempts and displays this highest score for them when they login.
 
-Video tutorial: 
+Video tutorial: https://youtu.be/NSnbUfG3_NY

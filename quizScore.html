@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication is Fun</title>
+    <style>
+body {
+    text-align: center;
+    background-color: #f4f4f9;
+    color: #333;
+    font-family: 'Arial', sans-serif;
+}
+#authForm, #secretContent {
+    margin-top: 40px;
+    padding: 20px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 90%;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
+h1, h2, h3 {
+    color: #5c67f2;
+}
+input[type=email], input[type=password], #userInput {
+    width: 80%;
+    padding: 10px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 5px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+button {
+    background-color: #5c67f2;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    margin-top: 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+button:hover {
+    background-color: #4a54e1;
+    transform: scale(1.05);
+}
+button:active {
+    transform: scale(0.95);
+}
+#scoreSpace {
+    font-size: 20px;
+    color: #4a54e1;
+}
+#secretContent {
+    display: none;
+}
+    </style>
+</head>
+
+<body>
+    <div id="authForm">
+        <h2>Sign Up or Sign In</h2>
+        <input type="email" placeholder="email" id="userEmail">
+        <input type="password" placeholder="password" id="userPassword">  <br><br>
+        <button id="signUpButton">Sign Up</button>
+        <button id="signInButton">Sign In</button>
+    </div>
+
+    <div id="secretContent">
+        <h3 id="highScoreMessage"></h3>
+        <h1 id="questionSpace" ></h1>
+        <input id="userInput"> <br><br>
+        <button id="submitButton">Submit</button>
+        <h2 id="scoreSpace"></h2>
+        
+        <button id="signOutButton">Sign Out</button>
+    </div>
+
+    <script type="module">
+        //Update the below URL with the appropriate version if necessary.
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
+        import {
+            getAuth,
+            createUserWithEmailAndPassword,
+            signInWithEmailAndPassword,
+            onAuthStateChanged,
+            signOut
+        //Update the below URL with the appropriate version if necessary.
+        } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-auth.js";
+        import {
+            getFirestore, doc, collection, setDoc, query, getDocs, orderBy, limit
+        } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
+       
+      
+        //PASTE YOUR OWN FIREBASE CONFIG OBJECT HERE
+      
+    
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const userEmail = document.querySelector("#userEmail");
+        const userPassword = document.querySelector("#userPassword");
+        const authForm = document.querySelector("#authForm");
+        const secretContent = document.querySelector("#secretContent");
+        const signUpButton = document.querySelector("#signUpButton");
+        const signInButton = document.querySelector("#signInButton");
+        const signOutButton = document.querySelector("#signOutButton");
+        const submitButton = document.querySelector("#submitButton");
+        const highScoreMessage = document.querySelector("#highScoreMessage");
+
+        secretContent.style.display = 'none';
+
+        const userSignUp = async() => {
+            const signUpEmail = userEmail.value;
+            const signUpPassword = userPassword.value;
+            createUserWithEmailAndPassword(auth, signUpEmail, signUpPassword)
+            .then((userCredential) => {
+                const user = userCredential.user;
+                console.log(user);
+                alert("Your account has been created!");
+            })
+            .catch((error) => {
+                const errorCode = error.code;
+                const errorMessage = error.message;
+                console.log(errorCode + errorMessage)
+            })
+        }
+
+        const userSignIn = async() => {
+            const signInEmail = userEmail.value;
+            const signInPassword = userPassword.value;
+            signInWithEmailAndPassword(auth, signInEmail, signInPassword)
+            .then((userCredential) => {
+                const user = userCredential.user;
+                alert("You have signed in successfully!");
+            })
+            .catch((error) => {
+                const errorCode = error.code;
+                const errorMessage = error.message;
+                console.log(errorCode + errorMessage)
+            })
+        }
+
+        const checkAuthState = async() => {
+            onAuthStateChanged(auth, user => {
+                if(user) {
+                    authForm.style.display = 'none';
+                    secretContent.style.display = 'block';
+                    displayHighScore();
+                }
+                else {
+                    authForm.style.display = 'block';
+                    secretContent.style.display = 'none';
+                }
+            })
+        }
+
+        const userSignOut = async() => {
+            await signOut(auth);
+        }
+
+        checkAuthState();
+
+        var questions = ["What is 2+2?", "What is 3+3?", "What is 4+4?"];
+        var answers = ["4", "6", "8"];
+        var counter = 0
+        var score = 0
+        var questionSpace = document.getElementById("questionSpace")
+        var userInput = document.getElementById("userInput")
+        var scoreSpace = document.getElementById("scoreSpace")
+
+
+        questionSpace.innerHTML = questions[0]
+
+
+        function submit() {
+            if(userInput.value == answers[counter]) {
+                score++
+                update()
+            } else {
+                update()
+            } 
+        }
+
+        function update() {
+            if(counter == (questions.length-1)) {
+                completeQuiz()
+            } else {
+                counter++
+                questionSpace.innerHTML = questions[counter]
+                userInput.value = ""
+            }
+        }
+
+        function completeQuiz() {
+            scoreSpace.innerHTML = "Your score is " + score;
+            const finalScore = score;
+            saveUserScore(finalScore);
+        }
+
+        async function saveUserScore(scoreParameter) {
+            const user = auth.currentUser
+
+            if(user) {
+                const scoreDocRef = doc(collection(db, "users", user.uid, "scores"));
+                try {
+                    await setDoc(scoreDocRef, {
+                        score: scoreParameter
+                    });
+                    console.log("Score saved successfully");
+                } catch(error) {
+                    console.error("Error saving score ", error);
+                }
+            } else {
+                console.log("User not signed in");
+            }
+
+        }
+
+        async function getHighestScore() {
+            const user = auth.currentUser
+            if(user) {
+                const scoreRef = collection(db, "users", user.uid, "scores");
+                const q = query(scoreRef, orderBy("score", "desc"), limit(1));
+                try{
+                    const querySnapshot = await getDocs(q);
+                    if(!querySnapshot.empty) {
+                        return querySnapshot.docs[0].data().score
+                    } else {
+                        console.log("No scores found")
+                        return null;
+                    }
+                } catch(error) {
+                    console.error("error fetching scores ", error);
+                    return null;
+                }
+            } else {
+                console.log("User not signed in");
+                return null;
+            }
+        }
+
+        async function displayHighScore() {
+            try{
+                const highScore = await getHighestScore();
+                if(highScore != null) {
+                    highScoreMessage.textContent = "Highest score: " + highScore;
+
+                } else {
+                    highScoreMessage.textContent = "No scores available";
+                }
+
+            } catch(error) {
+                console.log("Failed to get the highest score");
+            }
+        }
+
+        signUpButton.addEventListener('click', userSignUp);
+        signInButton.addEventListener('click', userSignIn);
+        signOutButton.addEventListener('click', userSignOut);
+        submitButton.addEventListener('click', submit);
+      </script>
+</body>
+</html>
